@@ -1,0 +1,23 @@
+Model,#Params,FLOPs
+resnet-18,11.51 M,3.63 G
+resnet-34,21.62 M,7.33 G
+resnet-50,24.85 M,8.18 G
+resnet-101,43.84 M,15.60 G
+resnet-152,59.49 M,23.03 G
+swin-tiny,28.02 M,8.98 G
+swin-small,49.34 M,17.48 G
+convnext-tiny,28.32 M,8.91 G
+convnext-small,49.96 M,17.37 G
+vit-b,86.30 M,33.70 G
+mobilevit-050,1.28 M,0.72 G
+mobilevit-075,2.73 M,1.60 G
+mobilevit-100,4.73 M,2.82 G
+mobilevit-125,7.26 M,4.39 G
+mobilevit-150,10.33 M,6.30 G
+mobilevit-175,13.94 M,8.56 G
+mobilevit-200,18.10 M,11.15 G
+mobilenet-conv_small,3.33 M,0.37 G
+mobilenet-conv_medium,9.27 M,1.65 G
+mobilenet-hybrid_medium,10.63 M,1.93 G
+mobilenet-conv_large,32.15 M,4.34 G
+mobilenet-hybrid_large,37.32 M,5.10 G
