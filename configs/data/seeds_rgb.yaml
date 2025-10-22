@@ -1,0 +1,29 @@
+_target_: src.data.classification.rgb.SeedRGBModule
+data_dir: ${paths.data_dir}/seeds_rgb
+path_train: cls_train_656_rgb.json
+path_val: cls_val_656_rgb.json
+path_test: cls_test_656_rgb.json
+base_dirs:
+  - images
+  - images_with_bg
+# sampling from multiple base dirs, must be a tuple with 3 elements
+# i.e., (train, val, test)
+# all: use all base_dirs
+# uniform: images will be sampled uniformly from each base_dir
+# List[float]: use the specified ratio to sample from each base_dir
+base_dirs_sampling:
+  - uniform  # train
+  - all  # val
+  - all  # test
+batch_size: 96
+max_size:
+  - 224
+  - 224
+num_workers: 16
+norm_mean: [0.34865115, 0.29936219, 0.25752143]  # images + images_with_bg
+norm_std: [0.2302609 , 0.19996711, 0.17874425]  # images + images_with_bg
+# norm_mean: [0.25311179, 0.20523201, 0.15988511]
+# norm_std: [0.26196898, 0.21698146, 0.17348916]
+persistent_workers: true
+prefetch_factor: 2
+pin_memory: true

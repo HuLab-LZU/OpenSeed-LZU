@@ -1,0 +1,6 @@
+defaults:
+  - default
+
+accelerator: gpu
+devices: auto
+precision: "bf16-mixed" # 16 bf16-mixed 32 64

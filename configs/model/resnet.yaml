@@ -1,0 +1,4 @@
+_target_: src.models.SeedResNet
+
+defaults:
+  - default

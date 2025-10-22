@@ -1,0 +1,57 @@
+# @package _global_
+
+defaults:
+  - override /data: seeds_rgb
+  - override /callbacks: rgb
+  - override /trainer: gpu
+  - override /logger: default
+
+model_name: default
+model_version: 0
+dataset_name: rgb
+is_pretrained: false
+is_compiled: true
+study_name: ${model_name}_${model_version}_${dataset_name}_pretrained_${is_pretrained}
+tags:
+  - ${model_name}
+  - ${model_version}
+  - ${dataset_name}
+  - pretrained_${is_pretrained}
+lr: null
+warmup_iters: 5
+cosine_iters: 90
+keep_iters: 10
+warmup_factor: 0.1
+eta_min_factor: 0.01
+
+in_channels: 3
+num_classes: 656
+img_size: [224, 224]
+batch_size: 256
+
+seed: 42
+
+model:
+  arch: "${model_name}_${model_version}"
+  in_channels: ${in_channels}
+  num_classes: ${num_classes}
+  img_size: ${img_size}
+
+data:
+  batch_size: ${batch_size}
+  max_size: ${img_size}
+
+logger:
+  tensorboard:
+    version: "${model_version}_${dataset_name}_pretrained_${is_pretrained}"
+    save_dir: "${paths.output_dir}/${model_name}"
+
+callbacks:
+  model_checkpoint:
+    filename: "${study_name}-{epoch}-{val_loss:.2f}-{val_acc:.2f}-{step}-pretrained_${is_pretrained}"
+
+trainer:
+  gradient_clip_val: 1.0 # If using mixed precision, the gradient_clip_val does not need to be changed as the gradients are unscaled before applying the clipping function.
+  precision: "bf16-mixed" # 16 bf16-mixed 32 64 transformer-engine
+  accelerator: gpu
+  devices: auto

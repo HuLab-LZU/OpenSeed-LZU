@@ -1,0 +1,4 @@
+gradient_accumulation:
+  _target_: lightning.pytorch.callbacks.GradientAccumulationScheduler
+  scheduling:
+    0: 2

@@ -1,0 +1,4 @@
+defaults:
+  - default
+  - image_sampler_tb
+

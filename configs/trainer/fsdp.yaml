@@ -1,0 +1,8 @@
+defaults:
+  - gpu
+
+# not working now
+strategy:
+  _target_: lightning.pytorch.strategies.FSDPStrategy
+  cpu_offload: true
+num_nodes: 1

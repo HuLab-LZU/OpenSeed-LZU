@@ -1,0 +1,9 @@
+# https://hydra.cc/docs/configure_hydra/intro/
+
+# enable color logging
+defaults:
+  - default
+
+# output directory, generated dynamically on each run
+run:
+  dir: ${paths.log_dir}/${task_name}/pretrained_${is_pretrained}/${model_name}/${model_version}/${seed}

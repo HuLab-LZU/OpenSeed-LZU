@@ -1,0 +1,48 @@
+in_channels: 3
+num_classes: 656
+img_size: [224, 224]
+pretrained: ${is_pretrained}
+compile: ${is_compiled}
+
+# scheduler:
+#   _target_: src.models.components.lr_scheduler.StepLrWithWarmup
+#   _partial_: true
+#   step_size: 10
+#   warmup_step: 2
+#   keep_step: 30
+#   gamma: 0.95
+#   last_epoch: -1
+
+scheduler:
+  _target_: src.models.components.lr_scheduler.CosineWarmupLR
+  _partial_: true
+  cosine_iters: ${cosine_iters}
+  keep_iters: ${keep_iters}
+  warmup_factor: ${warmup_factor}
+  warmup_iters: ${warmup_iters}
+  eta_min_factor: ${eta_min_factor}  # eta_min will be `eta_min_factor * initial_lr`
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: ${lr}
+  betas:
+    - 0.9
+    - 0.999
+  eps: 1.0e-08
+  weight_decay: 0.01
+
+scheduler_args:
+  monitor: val_loss
+  interval: epoch
+  frequency: 1
+
+# optimizer:
+#   _target_: torch.optim.Adam
+#   _partial_: true
+#   lr: 1.0e-3
+#   betas:
+#     - 0.9
+#     - 0.999
+#   eps: 1.0e-08
+#   weight_decay: 1.0e-8

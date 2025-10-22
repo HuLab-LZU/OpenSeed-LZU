@@ -1,0 +1,4 @@
+image_sampler_tb:
+  _target_: src.models.components.callbacks.TensorboardImageSampler
+  padding: 2
+  normalize: false

@@ -13,11 +13,6 @@ notebooks/bak/
 *.whl
 tmp/
 
-# TODO: add this when accepted.
-configs/
-src/repeat.py
-src/data/classification/h5.py
-
 # C extensions
 *.so
 
