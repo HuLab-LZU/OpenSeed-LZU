@@ -2,7 +2,7 @@
 name = "OpenSeed-LZU"
 version = "0.1.0"
 description = "OpenSeed: Towards an Open-Source Seed Image Analysis Ecosystem."
-authors = [{ name = "rainyl", email = "rainyliusy3@gmail.com" }]
+authors = []
 requires-python = "==3.11.*"
 readme = "README.md"
 license = { text = "Apache License v2.0" }
@@ -52,9 +52,9 @@ dev = [
 ]
 
 [tool.uv.sources]
-hydra-core = { git = "https://github.com/ZhengGroupLZU/hydra.git" }
-hydra-colorlog = { git = "https://github.com/ZhengGroupLZU/hydra.git", subdirectory = "plugins/hydra_colorlog" }
-hydra-optuna-sweeper = { git = "https://github.com/ZhengGroupLZU/hydra.git", subdirectory = "plugins/hydra_optuna_sweeper" }
+hydra-core = { git = "https://github.com/facebookresearch/hydra.git" }
+hydra-colorlog = { git = "https://github.com/facebookresearch/hydra.git", subdirectory = "plugins/hydra_colorlog" }
+hydra-optuna-sweeper = { git = "https://github.com/facebookresearch/hydra.git", subdirectory = "plugins/hydra_optuna_sweeper" }
 
 [[tool.uv.index]]
 name = "tsinghua"
