@@ -1,7 +1,6 @@
 import tempfile
 from math import sqrt
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -17,7 +16,7 @@ class ImageSamplerCallback(Callback):
         self,
         padding: int = 2,
         normalize: bool = False,
-        norm_range: Optional[Tuple[int, int]] = None,
+        norm_range: tuple[int, int] | None = None,
         scale_each: bool = False,
         pad_value: int = 0,
     ) -> None:
@@ -65,7 +64,7 @@ class TensorboardImageSampler(ImageSamplerCallback):
     """
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        images: List[torch.Tensor]
+        images: list[torch.Tensor]
         loader: DataLoader = trainer.train_dataloader  # type: ignore
         _, images = next(enumerate(loader))  # type: ignore
         assert loader.batch_size is not None
@@ -86,7 +85,7 @@ class TensorboardImageSampler(ImageSamplerCallback):
 
 class WandbImageSampler(ImageSamplerCallback):
     def on_train_epoch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        images: List[torch.Tensor]
+        images: list[torch.Tensor]
         loader: DataLoader = trainer.train_dataloader  # type: ignore
         _, images = next(enumerate(loader))  # type: ignore
         assert loader.batch_size is not None
@@ -108,14 +107,15 @@ class WandbImageSampler(ImageSamplerCallback):
 
 class MlFlowImageSampler(ImageSamplerCallback):
     def on_train_epoch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        images: List[torch.Tensor]
+        images: list[torch.Tensor]
         loader: DataLoader = trainer.train_dataloader  # type: ignore
         _, images = next(enumerate(loader))  # type: ignore
         assert loader.batch_size is not None
         nrow = int(sqrt(loader.batch_size))
 
         grid = (
-            torchvision.utils.make_grid(
+            torchvision.utils
+            .make_grid(
                 tensor=images[0],
                 nrow=nrow,
                 padding=self.padding,
@@ -179,4 +179,3 @@ class MLFlowSaveConfigCallback(SaveConfigCallback):
                     local_path=config_path,
                     run_id=trainer.logger.run_id,  # type: ignore
                 )
-

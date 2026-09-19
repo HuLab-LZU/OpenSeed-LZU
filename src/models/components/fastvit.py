@@ -1,17 +1,21 @@
+"""FastViT image classification model (timm)."""
+
 from collections.abc import Callable
 
-from timm.models.vision_transformer import VisionTransformer, vit_base_patch16_224
 from torch import optim
 
 from src.models.components.common import SeedModelBase
 
 ARCHS = {
-    # vit base patch_size=16
-    "vit_b": vit_base_patch16_224,
+    "fastvit_t8": "fastvit_t8",
+    # "fastvit_t12": "fastvit_t12",
+    "fastvit_s12": "fastvit_s12",
+    "fastvit_sa24": "fastvit_sa24",
+    # "fastvit_sa36": "fastvit_sa36",
 }
 
 
-class SeedViT(SeedModelBase):
+class SeedFastViT(SeedModelBase):
     def __init__(
         self,
         arch: str,
@@ -53,9 +57,11 @@ class SeedViT(SeedModelBase):
             loss_weight_family=loss_weight_family,
             consistency_weight=consistency_weight,
         )
+        import timm
 
-        func: Callable[..., VisionTransformer] = ARCHS[arch]
-        self.model = func(
+        model_name = ARCHS[arch]
+        self.model = timm.create_model(
+            model_name,
             pretrained=pretrained,
             num_classes=0 if self.multi_task else num_classes,
             in_chans=in_channels,

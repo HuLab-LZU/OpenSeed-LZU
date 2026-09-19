@@ -168,3 +168,15 @@ configs/local/default.yaml
 
 # Aim logging
 .aim
+cache/
+edge_bench/3rd_party/
+edge_bench/build*
+edge_bench/data/
+images.7z
+crop_parent.csv
+edge_bench/edge_bench/output
+edge_bench/output
+edge_bench/scripts/to_rknn.py
+figs/
+notebooks/
+scripts/out/

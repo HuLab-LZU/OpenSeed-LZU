@@ -1,7 +1,7 @@
 import copy
 import warnings
 
-import torch.optim as optim
+from torch import optim
 
 
 class StepLrWithWarmup(optim.lr_scheduler.StepLR):
@@ -22,8 +22,7 @@ class StepLrWithWarmup(optim.lr_scheduler.StepLR):
     def get_lr(self):
         if not self._get_lr_called_within_step:  # type: ignore
             warnings.warn(
-                "To get the last learning rate computed by the scheduler, "
-                "please use `get_last_lr()`.",
+                "To get the last learning rate computed by the scheduler, please use `get_last_lr()`.",
                 UserWarning,
             )
 

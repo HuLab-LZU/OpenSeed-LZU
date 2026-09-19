@@ -1,12 +1,10 @@
-from typing import List, Tuple
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class ResizePad(nn.Module):
-    def __init__(self, size: Tuple[int, int]) -> None:
+    def __init__(self, size: tuple[int, int]) -> None:
         super().__init__()
         self.size = size  # h, w
         self.mh, self.mw = size
@@ -16,9 +14,7 @@ class ResizePad(nn.Module):
         if w > self.mw or h > self.mh:
             ratio = min(self.mh / h, self.mw / w)
             newsize = (int(h * ratio), int(w * ratio))
-            x = F.interpolate(
-                x.unsqueeze(0), size=newsize, mode="bilinear", align_corners=False
-            ).squeeze(0)
+            x = F.interpolate(x.unsqueeze(0), size=newsize, mode="bilinear", align_corners=False).squeeze(0)
         _, h, w = x.shape
         # pad to `self.size`
         if w < self.mw or h < self.mh:
@@ -35,7 +31,7 @@ class ResizePad(nn.Module):
 
 
 class Resize(nn.Module):
-    def __init__(self, size: Tuple[int, int]) -> None:
+    def __init__(self, size: tuple[int, int]) -> None:
         super().__init__()
         self.size = (size[0], size[1])  # h, w
 
@@ -50,26 +46,6 @@ class Resize(nn.Module):
 
     def __repr__(self):
         return f"Resize(size={self.size})"
-
-
-class NormalizeH5(nn.Module):
-    """
-    Normalize a tensor to mean and std.
-    mean: torch.Tensor, shape=(N,) or (N, H, W)
-    std: torch.Tensor, shape=(N,) or (N, H, W)
-    """
-
-    def __init__(self, mean: List[float], std: List[float]) -> None:
-        super().__init__()
-        self.mean = torch.Tensor(mean).to(torch.float32).unsqueeze(1).unsqueeze(2)
-        self.std = torch.Tensor(std).to(torch.float32).unsqueeze(1).unsqueeze(2)
-
-    def forward(self, x: torch.Tensor):
-        x = (x - self.mean) / self.std
-        return x
-
-    def __repr__(self):
-        return f"NormalizeH5(mean={self.mean}, std={self.std})"
 
 
 class MinMaxNormalize(torch.nn.Module):

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from lightning_utilities.core.rank_zero import rank_zero_only
 from omegaconf import OmegaConf
@@ -9,7 +9,7 @@ log = pylogger.RankedLogger(__name__, rank_zero_only=True)
 
 
 @rank_zero_only
-def log_hyperparameters(object_dict: Dict[str, Any]) -> None:
+def log_hyperparameters(object_dict: dict[str, Any]) -> None:
     """Controls which config parts are saved by Lightning loggers.
 
     Additionally saves:
@@ -30,27 +30,23 @@ def log_hyperparameters(object_dict: Dict[str, Any]) -> None:
         log.warning("Logger not found! Skipping hyperparameter logging...")
         return
 
-    hparams["model"] = cfg["model"]
+    hparams["model"] = cfg["model"]  # type: ignore
 
     # save number of model parameters
     hparams["model/params/total"] = sum(p.numel() for p in model.parameters())
-    hparams["model/params/trainable"] = sum(
-        p.numel() for p in model.parameters() if p.requires_grad
-    )
-    hparams["model/params/non_trainable"] = sum(
-        p.numel() for p in model.parameters() if not p.requires_grad
-    )
+    hparams["model/params/trainable"] = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    hparams["model/params/non_trainable"] = sum(p.numel() for p in model.parameters() if not p.requires_grad)
 
-    hparams["data"] = cfg["data"]
-    hparams["trainer"] = cfg["trainer"]
+    hparams["data"] = cfg["data"]  # type: ignore
+    hparams["trainer"] = cfg["trainer"]  # type: ignore
 
-    hparams["callbacks"] = cfg.get("callbacks")
-    hparams["extras"] = cfg.get("extras")
+    hparams["callbacks"] = cfg.get("callbacks")  # type: ignore
+    hparams["extras"] = cfg.get("extras")  # type: ignore
 
-    hparams["task_name"] = cfg.get("task_name")
-    hparams["tags"] = cfg.get("tags")
-    hparams["ckpt_path"] = cfg.get("ckpt_path")
-    hparams["seed"] = cfg.get("seed")
+    hparams["task_name"] = cfg.get("task_name")  # type: ignore
+    hparams["tags"] = cfg.get("tags")  # type: ignore
+    hparams["ckpt_path"] = cfg.get("ckpt_path")  # type: ignore
+    hparams["seed"] = cfg.get("seed")  # type: ignore
 
     # send hparams to all loggers
     for logger in trainer.loggers:

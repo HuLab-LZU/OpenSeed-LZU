@@ -1,17 +1,18 @@
 import json
 import os
-from typing import Callable, Dict, List, Literal, Sequence, Tuple, TypeAlias
+from collections.abc import Callable, Sequence
 from enum import Enum
+from typing import Literal, TypeAlias
 
 import lightning as L
 import numpy as np
 import torch
-import torch.nn as nn
-import torchvision.transforms.v2 as v2
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from torch import nn
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import v2
 
-BDSType: TypeAlias = Literal["all", "uniform"] | List[float]
+BDSType: TypeAlias = Literal["all", "uniform"] | list[float]
 
 
 class BaseDirSamplingMethod(Enum):
@@ -19,15 +20,50 @@ class BaseDirSamplingMethod(Enum):
     PROBABILISTIC = "probabilistic"
 
 
+class RandomGamma(nn.Module):
+    """Apply a random gamma correction to a float tensor in [0, 1]."""
+
+    def __init__(self, min_gamma: float = 0.8, max_gamma: float = 1.25) -> None:
+        super().__init__()
+        self.min_gamma = min_gamma
+        self.max_gamma = max_gamma
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not self.training:
+            return x
+        gamma = float(torch.empty(1).uniform_(self.min_gamma, self.max_gamma).item())
+        return torch.pow(torch.clamp(x, 0.0, 1.0), gamma)
+
+
+class RandomChannelGain(nn.Module):
+    """Randomly scale each color channel independently (simulates white-balance)."""
+
+    def __init__(self, min_gain: float = 0.9, max_gain: float = 1.1) -> None:
+        super().__init__()
+        self.min_gain = min_gain
+        self.max_gain = max_gain
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not self.training:
+            return x
+        if x.ndim == 3:
+            scale = torch.empty(x.shape[0], 1, 1).uniform_(self.min_gain, self.max_gain).to(x.device)
+        elif x.ndim == 4:
+            scale = torch.empty(x.shape[0], x.shape[1], 1, 1).uniform_(self.min_gain, self.max_gain).to(x.device)
+        else:
+            raise ValueError(f"Unsupported tensor dims: {x.ndim}")
+        return torch.clamp(x * scale, 0.0, 1.0)
+
+
 # classification
 class _Dataset(Dataset):
     def __init__(
         self,
         ds_path: str,  # "*.json"
-        base_dirs: List[str] | str | None = None,  # {base_dir}/1.png
+        base_dirs: list[str] | str | None = None,  # {base_dir}/1.png
         base_dirs_sampling: BDSType = "all",
         transform: nn.Module | None = None,
-        max_size: Tuple[int, int] = (256, 256),
+        max_size: tuple[int, int] = (256, 256),
     ) -> None:
         assert os.path.exists(ds_path) and ds_path.endswith(".json")
         """
@@ -41,23 +77,37 @@ class _Dataset(Dataset):
         """
         with open(ds_path, "r", encoding="utf-8") as f:
             _ds = json.load(f)
-        images: List[str] = _ds["images"]
-        labels: List[int] = _ds["labels"]
-        self.class_names: List[str] = _ds["classes"]
+        images: list[str] = _ds["images"]
+        labels: list[int] = _ds["labels"]
+        classes = _ds["classes"]
+
+        # Multi-task JSON: classes is a dict {family: [...], genus: [...], species: [...]}
+        # and labels_family / labels_genus are parallel to labels.
+        self.multi_task = isinstance(classes, dict) and "species" in classes
+        if self.multi_task:
+            self.class_names = classes["species"]
+            self.num_classes_species = len(classes["species"])
+            self.num_classes_genus = len(classes.get("genus", []))
+            self.num_classes_family = len(classes.get("family", []))
+            self.genus_labels: list[int] = _ds.get("labels_genus", [])
+            self.family_labels: list[int] = _ds.get("labels_family", [])
+        else:
+            self.class_names = classes
+            self.num_classes_species = len(self.class_names)
+            self.genus_labels = None
+            self.family_labels = None
 
         self.transform = transform
         self.max_size = max_size
         self.sampling_method = (
-            BaseDirSamplingMethod.DISABLE
-            if base_dirs_sampling == "all"
-            else BaseDirSamplingMethod.PROBABILISTIC
+            BaseDirSamplingMethod.DISABLE if base_dirs_sampling == "all" else BaseDirSamplingMethod.PROBABILISTIC
         )
 
         # final used in __getitem__
-        self.img_names: List[str] = []  # names if sampling else full path
-        self.labels: List[int] = []
-        self.base_dirs: List[str] = []
-        self.base_dirs_sampling_p: List[float] = []
+        self.img_names: list[str] = []  # names if sampling else full path
+        self.labels: list[int] = []
+        self.base_dirs: list[str] = []
+        self.base_dirs_sampling_p: list[float] = []
 
         if base_dirs is None:
             self.img_names = images
@@ -79,12 +129,15 @@ class _Dataset(Dataset):
             if base_dirs_sampling == "all":
                 self.img_names = []
                 self.labels = labels * len(self.base_dirs)
+                if self.multi_task:
+                    self.genus_labels = self.genus_labels * len(self.base_dirs)
+                    self.family_labels = self.family_labels * len(self.base_dirs)
                 for d in self.base_dirs:
                     self.img_names += [os.path.join(d, name) for name in images]
             elif base_dirs_sampling == "uniform":
                 n = len(self.base_dirs)
                 self.base_dirs_sampling_p = [1 / n for _ in range(n)]
-            elif all([isinstance(p, float) for p in base_dirs_sampling]):
+            elif all(isinstance(p, float) for p in base_dirs_sampling):
                 assert len(base_dirs_sampling) == len(self.base_dirs), (
                     f"base_dirs_sampling must have the same length as base_dirs, but got {len(base_dirs_sampling)} and {len(self.base_dirs)}"
                 )
@@ -96,20 +149,11 @@ class _Dataset(Dataset):
 
         self._len = len(self.labels)
 
-        # calculate class weights for balanced sampling
-        _dist: Dict[int, int] = {}
-        for lbl in self.labels:
-            _dist[lbl] = _dist.get(lbl, 0) + 1
-        self.weights: List[float] = [1 - _dist[lbl] / self._len for lbl in self.labels]
-
     def get_image_path(self, idx: int) -> str:
         # will be the path of image if base_dirs_sampling == "all"
         # else, the image name needed to be joined with base_dir
         img_path = self.img_names[idx]
-        if (
-            self.base_dirs_sampling_p
-            and self.sampling_method == BaseDirSamplingMethod.PROBABILISTIC
-        ):
+        if self.base_dirs_sampling_p and self.sampling_method == BaseDirSamplingMethod.PROBABILISTIC:
             base_dir = np.random.choice(self.base_dirs, p=self.base_dirs_sampling_p)
             img_path = os.path.join(base_dir, img_path)
         return img_path
@@ -132,16 +176,20 @@ class _DataModule(L.LightningDataModule):
         path_train: str,
         path_val: str,
         path_test: str,
-        base_dirs: List[str],
-        base_dirs_sampling: Tuple[BDSType, BDSType, BDSType] = ("uniform", "all", "all"),
+        base_dirs: list[str],
+        base_dirs_sampling: tuple[BDSType, BDSType, BDSType] = (
+            "uniform",
+            "all",
+            "all",
+        ),
         data_dir: str | None = None,
         batch_size: int = 16,
-        max_size: Tuple[int, int] = (256, 256),
+        max_size: tuple[int, int] = (256, 256),
         num_workers: int = 4,
         persistent_workers: bool = True,
         prefetch_factor: int = 2,
-        norm_mean: List[float] | None = None,
-        norm_std: List[float] | None = None,
+        norm_mean: list[float] | None = None,
+        norm_std: list[float] | None = None,
         class_names: Sequence[str] | None = None,
         pin_memory: bool = False,
         prompt_drop_rate: float = 0.5,
@@ -152,7 +200,7 @@ class _DataModule(L.LightningDataModule):
         self.path_val = path_val if data_dir is None else os.path.join(data_dir, path_val)
         self.path_test = path_test if data_dir is None else os.path.join(data_dir, path_test)
 
-        self.base_dirs: List[str]
+        self.base_dirs: list[str]
         if data_dir is None or base_dirs is None:
             self.base_dirs = base_dirs
         else:
@@ -162,7 +210,7 @@ class _DataModule(L.LightningDataModule):
         assert os.path.exists(self.path_train) and path_train.endswith(".json")
         assert os.path.exists(self.path_val) and path_val.endswith(".json")
         assert os.path.exists(self.path_test) and path_test.endswith(".json")
-        assert all([os.path.exists(d) for d in self.base_dirs])
+        assert all(os.path.exists(d) for d in self.base_dirs)
 
         self.batch_size = batch_size
         self.max_size = max_size
@@ -183,25 +231,32 @@ class _DataModule(L.LightningDataModule):
         self.prompt_elem_drop_rate = prompt_elem_drop_rate
 
     @property
-    def train_transform(self) -> List[Callable | nn.Module]:
+    def train_transform(self) -> list[Callable | nn.Module]:
         return [
             v2.ToDtype(torch.float32),
-            v2.RandomRotation((0, 360), expand=True),
-            # ResizePad(self.max_size),
-            # v2.GaussianBlur(5, sigma=(0.0, 2.0)),
+            v2.RandomRotation((0, 360)),
             v2.RandomResizedCrop(
                 size=self.max_size,
                 scale=(0.8, 1.0),
                 ratio=(0.8, 2.0),
             ),
+            # photometric augmentation to reduce sensitivity to illumination.
+            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.0),
+            v2.RandomApply([RandomGamma(0.8, 1.25)], p=0.3),
+            v2.RandomApply([RandomChannelGain(0.9, 1.1)], p=0.3),
+            # Background/imprint random erasing.
+            v2.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
         ] + self.post_transform
 
     @property
-    def val_transform(self) -> List[Callable | nn.Module]:
-        return [v2.ToDtype(torch.float32), v2.Resize(self.max_size)] + self.post_transform
+    def val_transform(self) -> list[Callable | nn.Module]:
+        return [
+            v2.ToDtype(torch.float32),
+            v2.Resize(self.max_size),
+        ] + self.post_transform
 
     @property
-    def post_transform(self) -> List[Callable | nn.Module]:
+    def post_transform(self) -> list[Callable | nn.Module]:
         if self.norm_mean and self.norm_std:
             return [
                 v2.Normalize(mean=self.norm_mean, std=self.norm_std),
@@ -209,7 +264,7 @@ class _DataModule(L.LightningDataModule):
         return []
 
     @property
-    def test_transform(self) -> List[Callable | nn.Module]:
+    def test_transform(self) -> list[Callable | nn.Module]:
         return self.val_transform
 
     def prepare_data(self) -> None: ...
@@ -219,12 +274,7 @@ class _DataModule(L.LightningDataModule):
         return DataLoader(
             self.ds_train,
             batch_size=self.batch_size,
-            # shuffle=True,  # can not use with sampler
-            sampler=WeightedRandomSampler(
-                self.ds_train.weights,
-                num_samples=len(self.ds_train),
-                replacement=True,
-            ),
+            shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             persistent_workers=self.persistent_workers,

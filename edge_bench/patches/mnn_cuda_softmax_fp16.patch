@@ -1,0 +1,18 @@
+diff --git a/source/backend/cuda/execution/SoftmaxExecution.cu b/source/backend/cuda/execution/SoftmaxExecution.cu
+index 5b59963f..c64f0fb7 100644
+--- a/source/backend/cuda/execution/SoftmaxExecution.cu
++++ b/source/backend/cuda/execution/SoftmaxExecution.cu
+@@ -205,7 +205,12 @@ ErrorCode SoftmaxExecution::onExecute(const std::vector<Tensor *> &inputs, const
+     int block_num = runtime->blocks_num(count);
+     int threads_num = runtime->threads_num();
+ 
+-    bool isHalf = (inputs[0]->getType().bits == 16);
++    // The CUDA backend keeps float tensors declared as fp32 and only halves the allocated
++    // buffer when it runs in fp16 mode (see CUDABackend::getBytes), so the tensor type is
++    // always 32 bits here and cannot be used to detect fp16. Testing it made the fp32
++    // kernel read an fp16 buffer, which produced NaN in every Softmax output - fatal for
++    // attention models (ViT / Swin / MobileViT / MobileNetV4-hybrid).
++    bool isHalf = static_cast<CUDABackend*>(backend())->useFp16() || (inputs[0]->getType().bits == 16);
+ 
+     if (isHalf) {
+         if(axis % 256 == 0 || axis >= 768) {
